@@ -159,7 +159,6 @@ int main(int argc, char *argv[]) {
   while (!quitProgram) {
     int connFd = 0;
 
-
     // The accept() call checks the listening queue for connection requests.
     // If a client has already tried to connect accept() will complete the
     // connection and return a file descriptor that you can read from and

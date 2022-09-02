@@ -43,4 +43,4 @@ submit:
 	rm -f core project1 ${OBJ_FILES}
 	mkdir `whoami`
 	cp Makefile README.txt *.h *.cc `whoami`
-	tar cf `whoami`.tar `whoami`
+	tar cfv `whoami`.tar `whoami`
