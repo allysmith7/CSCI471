@@ -1,0 +1,4 @@
+*.tar*
+*.o
+/echo_s
+cksmith/

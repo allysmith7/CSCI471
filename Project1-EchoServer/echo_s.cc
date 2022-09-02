@@ -22,36 +22,36 @@ int processConnection(int sockFd) {
   char buffer[MAX_LEN];
   while (keepGoing) {
 
-    //
-    // Call read() call to get a buffer/line from the client.
-    // Hint - don't forget to zero out the buffer each time you use it.
-    //
+    // clear the buffer
     bzero(buffer, MAX_LEN);
-    ssize_t bytesRead = read(sockFd, buffer, sizeof(buffer));
+    // read from the socket to the buffer
+    DEBUG << "Calling read(" << sockFd << ", buffer, " << MAX_LEN << ENDL;
+    ssize_t bytesRead = read(sockFd, buffer, MAX_LEN);
+    DEBUG << "Received message of length " << bytesRead << ENDL;
 
+    // search for CLOSE or QUIT using cpp library functions
     std::string temp(buffer);
     size_t posClose = temp.find("CLOSE");
     size_t posQuit = temp.find("QUIT");
 
+    // if either close or quit are found, handle this
+    // if both are found, close is assumed
     if (posClose != std::string::npos) {
       // close fd and return 0
+      DEBUG << "Input contained 'CLOSE'" << ENDL;
       close(sockFd);
       quitProgram = 0;
       break;
     } else if (posQuit != std::string::npos) {
       // close fd and return 1
+      DEBUG << "Input contained 'QUIT'" << ENDL;
       close(sockFd);
       quitProgram = 1;
       break;
     }
 
-    //
-    // Check for one of the commands
-    //
-
-    //
-    // Call write() to send line back to the client.
-    //
+    // write back to client, start listening again
+    DEBUG << "Calling write(" << sockFd << ", buffer, " << bytesRead << ENDL;
     write(sockFd, buffer, bytesRead);
   }
 
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
   listenFd = socket(AF_INET, SOCK_STREAM, 0);
   if (listenFd == -1) {
     ERROR << "Failed to create listening socket, exiting..." << ENDL;
-    exit(1);
+    exit(-1);
   }
   DEBUG << "Calling Socket() assigned file descriptor " << listenFd << ENDL;
 
@@ -159,8 +159,6 @@ int main(int argc, char *argv[]) {
   while (!quitProgram) {
     int connFd = 0;
 
-    DEBUG << "Calling accept(" << listenFd << ", NULL, NULL)." << ENDL;
-    connFd = accept(listenFd, NULL, NULL);
 
     // The accept() call checks the listening queue for connection requests.
     // If a client has already tried to connect accept() will complete the
@@ -168,8 +166,11 @@ int main(int argc, char *argv[]) {
     // write to. If there is no connection waiting accept() will block and
     // not return until there is a connection.
 
+    DEBUG << "Calling accept(" << listenFd << ", NULL, NULL)." << ENDL;
+    connFd = accept(listenFd, NULL, NULL);
     DEBUG << "We have recieved a connection on " << connFd << ENDL;
 
+    // process the connection using our defined function
     quitProgram = processConnection(connFd);
 
     close(connFd);
