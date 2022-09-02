@@ -33,4 +33,4 @@
 #define ERROR BOOST_LOG_TRIVIAL(error) 
 #define FATAL BOOST_LOG_TRIVIAL(fatal)  
 #define ENDL  " (" << __FILE__ << ":" << __LINE__ << ")"
-
+#define MAX_LEN 80

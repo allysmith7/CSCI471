@@ -3,7 +3,9 @@
 // * -- Accepts TCP connections and then echos back each string sent.
 // **************************************************************************************
 #include "echo_s.h"
-#include <sys/socket.h>
+#include <cstring>
+#include <string>
+#include <unistd.h>
 
 // **************************************************************************************
 // * processConnection()
@@ -16,12 +18,32 @@ int processConnection(int sockFd) {
 
   int quitProgram = 0;
   int keepGoing = 1;
+
+  char buffer[MAX_LEN];
   while (keepGoing) {
 
     //
     // Call read() call to get a buffer/line from the client.
     // Hint - don't forget to zero out the buffer each time you use it.
     //
+    bzero(buffer, MAX_LEN);
+    ssize_t bytesRead = read(sockFd, buffer, sizeof(buffer));
+
+    std::string temp(buffer);
+    size_t posClose = temp.find("CLOSE");
+    size_t posQuit = temp.find("QUIT");
+
+    if (posClose != std::string::npos) {
+      // close fd and return 0
+      close(sockFd);
+      quitProgram = 0;
+      break;
+    } else if (posQuit != std::string::npos) {
+      // close fd and return 1
+      close(sockFd);
+      quitProgram = 1;
+      break;
+    }
 
     //
     // Check for one of the commands
@@ -30,6 +52,7 @@ int processConnection(int sockFd) {
     //
     // Call write() to send line back to the client.
     //
+    write(sockFd, buffer, bytesRead);
   }
 
   return quitProgram;
