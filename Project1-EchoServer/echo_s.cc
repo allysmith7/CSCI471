@@ -29,6 +29,13 @@ int processConnection(int sockFd) {
     ssize_t bytesRead = read(sockFd, buffer, MAX_LEN);
     DEBUG << "Received message of length " << bytesRead << ENDL;
 
+    if (bytesRead == 0 || bytesRead == -1) {
+      ERROR << "Error reading from client, treating like CLOSE" << ENDL;
+      keepGoing = 0;
+      quitProgram = 0;
+      break;
+    }
+
     // search for CLOSE or QUIT using cpp library functions
     std::string temp(buffer);
     size_t posClose = temp.find("CLOSE");
@@ -46,13 +53,21 @@ int processConnection(int sockFd) {
       // close fd and return 1
       DEBUG << "Input contained 'QUIT'" << ENDL;
       close(sockFd);
+      keepGoing = 0;
       quitProgram = 1;
       break;
     }
 
     // write back to client, start listening again
     DEBUG << "Calling write(" << sockFd << ", buffer, " << bytesRead << ENDL;
-    write(sockFd, buffer, bytesRead);
+    int status = write(sockFd, buffer, bytesRead);
+    if (status == -1) {
+      ERROR << "Error writing to socket, treating like a CLOSE" << ENDL;
+      close(sockFd);
+      keepGoing = 0;
+      quitProgram = 0;
+      break;
+    }
   }
 
   return quitProgram;
