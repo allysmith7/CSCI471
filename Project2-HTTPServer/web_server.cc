@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include <cstdlib>
 #include <cstring>
+#include <regex>
 #include <signal.h>
 #include <string>
 #include <unistd.h>
@@ -28,49 +29,67 @@ void exitProgram(int s) {
 int readRequest(int socketFD, std::string *filename) {
   // Set default return code to 400
   int returnStatus = 400;
-  int readingHeader = 1;
+  int numChars;
+  std::cmatch result = std::cmatch();
+  std::regex endlinePattern("\r\n");
+  std::regex doubleEndlinePattern("\r\n\r\n");
+  std::regex getPattern(
+      "GET\\s+/(file\\d\\.html|image\\d\\.jpg)?\\s+HTTP/\\d\\.\\d\r\n");
+  std::regex noFilePattern("GET \\s+/\\s+HTTP/\\d\\.\\d\r\n");
+  std::regex filePattern("(image\\d\\.jpg|file\\d\\.html)");
 
-  // Read everything up to and including the end of the header
-  char *header = (char *)malloc(MAX_LEN * sizeof(char));
-  char *buffer = (char *)malloc(BUF_LEN * sizeof(char));
-  int headerOffset = 0;
-
-  while (readingHeader) {
-    bzero(buffer, BUF_LEN);
-    DEBUG << "Reading " << BUF_LEN << " bytes from socket " << socketFD << ENDL;
-    int bytesRead = read(socketFD, buffer, BUF_LEN);
-    if (bytesRead == 0 || bytesRead == -1) {
-      ERROR << "Problem reading from socket, serving 400" << ENDL;
-      return 400;
-    }
-
-    int numChars, doubleEndlineIndex = hasDoubleEndline(buffer, bytesRead - 1);
-    if (doubleEndlineIndex == -1) {
-      // not end of header, copy the whole buffer
-      numChars = bytesRead;
-      DEBUG << "No double newline found, copying " << numChars
-            << " characters to header" << ENDL;
-    } else {
-      // copy the double newline and nothing more
-      numChars = doubleEndlineIndex + 4;
-      readingHeader = 0;
-      DEBUG << "Double newline found, copying " << numChars
-            << " characters to header" << ENDL;
-    }
-    copyBuffer(header, buffer, numChars, headerOffset, 0);
-    headerOffset += numChars;
+  // Read everything into a temporary buffer so we can isolate the header
+  char *buffer = (char *)malloc(MAX_LEN * sizeof(char));
+  // read in new characters
+  DEBUG << "Reading " << MAX_LEN << " bytes from socket " << socketFD << ENDL;
+  int bytesRead = read(socketFD, buffer, MAX_LEN);
+  if (bytesRead == 0 || bytesRead == -1) {
+    ERROR << "Problem reading from socket";
+    return 400;
   }
 
-  DEBUG << header << ENDL;
+  // regex search for double endline
+  if (!regex_search(buffer, result, doubleEndlinePattern)) {
+    // no end of header, this is bad
+    ERROR << "No double newline found";
+    return 400;
+  }
+  // copy the double newline and nothing more
+  numChars =
+      result.prefix().length() + 4; // add 4 for the "\r\n\r\n" at the end
+  DEBUG << "Double newline found (" << numChars << " characters)";
 
-  /*
-  - Look at the first line of the header to see if it contains a valid GET
-    - If there is a valid GET, find the filename.
-    - If there is a filename, make sure it is a valid filename
-      - If the filename is valid set the return code to 200
-      - If the filename is invalid set the return code to 404 */
+  char *header = (char *)malloc(numChars * sizeof(char));
+  copyBuffer(header, buffer, numChars, 0, 0);
 
-  exitProgram(0);
+  // isolate first line
+  regex_search(header, result, endlinePattern);
+  numChars = result.prefix().length() + 2; // add 2 for "\r\n"
+  char *firstLine = (char *)malloc(numChars * sizeof(char));
+  copyBuffer(firstLine, header, numChars, 0, 0);
+
+  // regex search first line for GET request
+  DEBUG << "Searching first line for valid GET request" << ENDL;
+  if (regex_search(firstLine, getPattern)) {
+    DEBUG << "Valid GET request found, checking for filename";
+    // check for file name
+    if (!regex_search(firstLine, noFilePattern)) {
+      // file name found, validate and isolate
+      if (regex_search(firstLine, result, filePattern)) {
+        returnStatus = 200;
+        DEBUG << "Valid file found: " << result[0].str();
+      } else {
+        DEBUG << "Invalid file requested";
+        returnStatus = 404;
+      }
+    } else {
+      // no file name?
+      DEBUG << "No filename found";
+    }
+  } else {
+    DEBUG << "No GET found";
+  }
+
   return returnStatus;
 }
 
@@ -81,54 +100,21 @@ void copyBuffer(char *dest, char *source, int n, int offsetDest,
   }
 }
 
-int hasDoubleEndline(char *buffer, int index_max) {
-  for (int i = 0; i < index_max; i++) {
-    if (countEndlines(buffer, i, index_max) == 2) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-int hasSingleEndline(char *buffer, int index_max) {
-  for (int i = 0; i < index_max; i++) {
-    if (countEndlines(buffer, i, index_max) == 1) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-bool isEndline(char *buffer, int index, int index_max) {
-  if (index >= index_max)
-    return false;
-  return buffer[index] == 13 && buffer[index + 1] == 10;
-}
-
-// counts the number of endlines ("\r\n") at the given position, maxing at 2
-int countEndlines(char *buffer, int index, int index_max) {
-  if (index >= index_max)
-    return 0;
-  if (isEndline(buffer, index, index_max)) {
-    if (index < index_max - 2 && isEndline(buffer, index + 2, index_max)) {
-      return 2;
-    } else {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 // *****************************************************************************
 // Send one line (including the line terminator <LF><CR>)
 // *****************************************************************************
 void sendLine(int socketFD, std::string line) {
-  /* - Convert the std::string to an array that is 2 bytes longer than the
-     string
-     - Replace the last two bytes of the array with the <CR> and <LF>
-     - Use write to send that array */
-
-  return;
+  // convert string to char *
+  int l = line.length();
+  char buffer[l + 2];
+  for (int i = 0; i < l; i++) {
+    buffer[i] = line[i];
+  }
+  // append "\r\n"
+  buffer[l] = 13;
+  buffer[l + 2] = 10;
+  // write to FD
+  write(socketFD, buffer, l+2);
 }
 
 // *****************************************************************************
@@ -143,6 +129,8 @@ void send404(int socketFD) {
       - Send a friendly message that indicates what the problem is (file not
         found or something like that)
       - Send a blank line to indicate the end of the message body */
+
+  // sendLine(socketFD, "HTTP/1.1 400 ");
 
   return;
 }
@@ -227,6 +215,12 @@ int main(int argc, char *argv[]) {
   sigaction(SIGQUIT, &newact, &oldact);
   sigaction(SIGABRT, &newact, &oldact);
   sigaction(SIGKILL, &newact, &oldact);
+
+  // test code here
+
+
+  
+  // exit(0);
 
   // Creating the inital socket is the same as in a client.
   listenFD = -1;
