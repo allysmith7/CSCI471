@@ -1,4 +1,5 @@
 CSCI471 Project 2 - HTTP Server
 Ally Smith
 
-Run `make` and execute the `web_server` file
+Enter the directory and run `make` to compile. 
+Run `make [-v]` to execute the server.

@@ -21,6 +21,15 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/console.hpp>
 
+// functions
+int readRequest(int socketFD, std::string *filename);
+bool isEndline(char *buffer, size_t index);
+bool isDoubleEndline(char *buffer, size_t index);
+void sendLine(int socketFD, std::string line);
+void send404(int socketFD);
+void send400(int socketFD);
+void sendFile(int socketFD, std::string filename);
+
 // ********************************************************
 // * These don't really provide any improved functionality,
 // * but IMHO they make the code more readable.

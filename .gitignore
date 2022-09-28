@@ -1,0 +1,4 @@
+*.code-workspace
+*.tar*
+*.o
+cksmith/
