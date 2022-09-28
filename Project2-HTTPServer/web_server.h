@@ -2,6 +2,7 @@
 // * A common set of system include files needed for socket() programming
 // ********************************************************
 #include <arpa/inet.h>
+#include <cstddef>
 #include <errno.h>
 #include <fcntl.h>
 #include <iostream>
@@ -23,8 +24,16 @@
 
 // functions
 int readRequest(int socketFD, std::string *filename);
-bool isEndline(char *buffer, size_t index);
-bool isDoubleEndline(char *buffer, size_t index);
+bool isEndline(char *buffer, int index, int index_max);
+int hasSingleEndline(char *buffer, int index_max);
+int hasDoubleEndline(char *buffer, int index_max);
+int countEndlines(char *buffer, int index, int index_max);
+int nextEndline(char *buffer, int indStart, int index_max);
+void copyBuffer(char *dest, char *source, int n, int offsetDest,
+                int offsetSource);
+void sigInterrupt(int s);
+void exitProgram(int s);
+
 void sendLine(int socketFD, std::string line);
 void send404(int socketFD);
 void send400(int socketFD);
@@ -42,3 +51,4 @@ void sendFile(int socketFD, std::string filename);
 #define FATAL BOOST_LOG_TRIVIAL(fatal)
 #define ENDL " (" << __FILE__ << ":" << __LINE__ << ")"
 #define MAX_LEN 1024
+#define BUF_LEN 32

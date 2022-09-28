@@ -1,35 +1,122 @@
 #include "web_server.h"
 #include <cstdlib>
 #include <cstring>
+#include <signal.h>
 #include <string>
 #include <unistd.h>
+
+int sigCode = 0;
+int connFD = -1, listenFD = -1;
+void sigInterrupt(int s) {
+  sigCode = s;
+  DEBUG << "Received code " << s << ENDL;
+  exitProgram(s);
+}
+
+void exitProgram(int s) {
+  DEBUG << "Exiting" << ENDL;
+  close(connFD);
+  close(listenFD);
+
+  exit(s);
+}
 
 // *****************************************************************************
 // - Read the header
 // - Return the appropriate status code and filename
 // *****************************************************************************
 int readRequest(int socketFD, std::string *filename) {
+  // Set default return code to 400
+  int returnStatus = 400;
+  int readingHeader = 1;
+
+  // Read everything up to and including the end of the header
+  char *header = (char *)malloc(MAX_LEN * sizeof(char));
+  char *buffer = (char *)malloc(BUF_LEN * sizeof(char));
+  int headerOffset = 0;
+
+  while (readingHeader) {
+    bzero(buffer, BUF_LEN);
+    DEBUG << "Reading " << BUF_LEN << " bytes from socket " << socketFD << ENDL;
+    int bytesRead = read(socketFD, buffer, BUF_LEN);
+    if (bytesRead == 0 || bytesRead == -1) {
+      ERROR << "Problem reading from socket, serving 400" << ENDL;
+      return 400;
+    }
+
+    int numChars, doubleEndlineIndex = hasDoubleEndline(buffer, bytesRead - 1);
+    if (doubleEndlineIndex == -1) {
+      // not end of header, copy the whole buffer
+      numChars = bytesRead;
+      DEBUG << "No double newline found, copying " << numChars
+            << " characters to header" << ENDL;
+    } else {
+      // copy the double newline and nothing more
+      numChars = doubleEndlineIndex + 4;
+      readingHeader = 0;
+      DEBUG << "Double newline found, copying " << numChars
+            << " characters to header" << ENDL;
+    }
+    copyBuffer(header, buffer, numChars, headerOffset, 0);
+    headerOffset += numChars;
+  }
+
+  DEBUG << header << ENDL;
+
   /*
-  - Set default return code to 400
-  - Read everything up to and including the end of the header
   - Look at the first line of the header to see if it contains a valid GET
     - If there is a valid GET, find the filename.
     - If there is a filename, make sure it is a valid filename
       - If the filename is valid set the return code to 200
       - If the filename is invalid set the return code to 404 */
+
+  exitProgram(0);
+  return returnStatus;
+}
+
+void copyBuffer(char *dest, char *source, int n, int offsetDest,
+                int offsetSource) {
+  for (int i = 0; i < n; i++) {
+    dest[offsetDest + i] = source[offsetSource + i];
+  }
+}
+
+int hasDoubleEndline(char *buffer, int index_max) {
+  for (int i = 0; i < index_max; i++) {
+    if (countEndlines(buffer, i, index_max) == 2) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+int hasSingleEndline(char *buffer, int index_max) {
+  for (int i = 0; i < index_max; i++) {
+    if (countEndlines(buffer, i, index_max) == 1) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+bool isEndline(char *buffer, int index, int index_max) {
+  if (index >= index_max)
+    return false;
+  return buffer[index] == 13 && buffer[index + 1] == 10;
+}
+
+// counts the number of endlines ("\r\n") at the given position, maxing at 2
+int countEndlines(char *buffer, int index, int index_max) {
+  if (index >= index_max)
+    return 0;
+  if (isEndline(buffer, index, index_max)) {
+    if (index < index_max - 2 && isEndline(buffer, index + 2, index_max)) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
   return 0;
-}
-
-bool isEndline(char *buffer, size_t index) {
-  if (index < 1)
-    return false;
-  return (buffer[index] == 10 && buffer[index - 1] == 13);
-}
-
-bool isDoubleEndline(char *buffer, size_t index) {
-  if (index < 3)
-    return false;
-  return isEndline(buffer, index) && isEndline(buffer, index - 2);
 }
 
 // *****************************************************************************
@@ -124,17 +211,30 @@ int main(int argc, char *argv[]) {
     case '?':
     default:
       std::cout << "useage: " << argv[0] << " -v" << std::endl;
-      exit(-1);
+      exitProgram(1);
     }
   }
 
+  // Set up signals
+  struct sigaction newact;
+  struct sigaction oldact;
+  newact.sa_handler = sigInterrupt;
+  sigemptyset(&newact.sa_mask);
+  newact.sa_flags = 0;
+
+  sigaction(SIGHUP, &newact, &oldact);
+  sigaction(SIGINT, &newact, &oldact);
+  sigaction(SIGQUIT, &newact, &oldact);
+  sigaction(SIGABRT, &newact, &oldact);
+  sigaction(SIGKILL, &newact, &oldact);
+
   // Creating the inital socket is the same as in a client.
-  int listenFD = -1;
+  listenFD = -1;
   // Call socket() to create the socket you will use for lisening.
   listenFD = socket(AF_INET, SOCK_STREAM, 0);
   if (listenFD == -1) {
     ERROR << "Failed to create listening socket, exiting..." << ENDL;
-    exit(-1);
+    exitProgram(1);
   }
   DEBUG << "Calling Socket() assigned file descriptor " << listenFD << ENDL;
 
@@ -172,15 +272,15 @@ int main(int argc, char *argv[]) {
   int listenStatus = listen(listenFD, listenQueueLength);
   if (listenStatus != 0) {
     ERROR << "Failed to start listening, exiting..." << ENDL;
-    exit(1);
+    exitProgram(1);
   }
 
   /* The accept call will sleep, waiting for a connection. When a connection
     request comes in the accept() call creates a NEW socket with a new fd that
     will be used for the communication. */
   int quitProgram = 0;
-  while (!quitProgram) {
-    int connFD = 0;
+  while (!quitProgram && !sigCode) {
+    connFD = 0;
 
     // The accept() call checks the listening queue for connection requests.
     DEBUG << "Calling accept(" << listenFD << ", NULL, NULL)." << ENDL;
