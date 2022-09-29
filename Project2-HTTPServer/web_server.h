@@ -26,7 +26,7 @@
 void sigInterrupt(int s);
 void exitProgram(int s);
 int processConnection(int socketFD);
-int readRequest(int socketFD, std::string *filename);
+int readRequest(int socketFD);
 void copyBuffer(char *dest, char *source, int n, int offsetDest,
                 int offsetSource);
 void sendLine(int socketFD, std::string line);

@@ -1,13 +1,20 @@
 #include "web_server.h"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <ios>
+#include <iostream>
 #include <regex>
 #include <signal.h>
 #include <string>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int sigCode = 0;
-int connFD = -1, listenFD = -1;
+int port;
+std::string filename;
+
 void sigInterrupt(int s) {
   sigCode = s;
   DEBUG << "Received code " << s << ENDL;
@@ -15,9 +22,9 @@ void sigInterrupt(int s) {
 }
 
 void exitProgram(int s) {
-  DEBUG << "Exiting" << ENDL;
-  close(connFD);
-  close(listenFD);
+  DEBUG << "Closing FD [3,31] and exiting" << ENDL;
+  for (int i = 3; i < 32; i++)
+    close(i);
 
   exit(s);
 }
@@ -26,16 +33,15 @@ void exitProgram(int s) {
 // - Read the header
 // - Return the appropriate status code and filename
 // *****************************************************************************
-int readRequest(int socketFD, std::string *filename) {
+int readRequest(int socketFD) {
   // Set default return code to 400
   int returnStatus = 400;
   int numChars;
   std::cmatch result = std::cmatch();
   std::regex endlinePattern("\r\n");
   std::regex doubleEndlinePattern("\r\n\r\n");
-  std::regex getPattern(
-      "GET\\s+/(file\\d\\.html|image\\d\\.jpg)?\\s+HTTP/\\d\\.\\d\r\n");
-  std::regex noFilePattern("GET \\s+/\\s+HTTP/\\d\\.\\d\r\n");
+  std::regex getPattern("GET\\s+\\/[\\w\\d]*.?[\\w\\d]*\\s+HTTP\\/\\d\\.\\d\r\n");
+  std::regex noFilePattern("GET\\s+\\/\\s+HTTP/\\d\\.\\d\r\n");
   std::regex filePattern("(image\\d\\.jpg|file\\d\\.html)");
 
   // Read everything into a temporary buffer so we can isolate the header
@@ -47,6 +53,7 @@ int readRequest(int socketFD, std::string *filename) {
     ERROR << "Problem reading from socket";
     return 400;
   }
+  DEBUG << std::endl << std::endl << buffer << std::endl << std::endl;
 
   // regex search for double endline
   if (!regex_search(buffer, result, doubleEndlinePattern)) {
@@ -57,19 +64,18 @@ int readRequest(int socketFD, std::string *filename) {
   // copy the double newline and nothing more
   numChars =
       result.prefix().length() + 4; // add 4 for the "\r\n\r\n" at the end
-  DEBUG << "Double newline found (" << numChars << " characters)";
+  DEBUG << "Double newline found (" << numChars << " / " << bytesRead << ")";
 
   char *header = (char *)malloc(numChars * sizeof(char));
   copyBuffer(header, buffer, numChars, 0, 0);
-
+  free(buffer);
   // isolate first line
   regex_search(header, result, endlinePattern);
   numChars = result.prefix().length() + 2; // add 2 for "\r\n"
   char *firstLine = (char *)malloc(numChars * sizeof(char));
   copyBuffer(firstLine, header, numChars, 0, 0);
-
+  free(header);
   // regex search first line for GET request
-  DEBUG << "Searching first line for valid GET request" << ENDL;
   if (regex_search(firstLine, getPattern)) {
     DEBUG << "Valid GET request found, checking for filename";
     // check for file name
@@ -77,7 +83,8 @@ int readRequest(int socketFD, std::string *filename) {
       // file name found, validate and isolate
       if (regex_search(firstLine, result, filePattern)) {
         returnStatus = 200;
-        DEBUG << "Valid file found: " << result[0].str();
+        filename = std::string(result[0].str());
+        DEBUG << "Valid file found: " << filename;
       } else {
         DEBUG << "Invalid file requested";
         returnStatus = 404;
@@ -89,7 +96,7 @@ int readRequest(int socketFD, std::string *filename) {
   } else {
     DEBUG << "No GET found";
   }
-
+  free(firstLine);
   return returnStatus;
 }
 
@@ -112,54 +119,97 @@ void sendLine(int socketFD, std::string line) {
   }
   // append "\r\n"
   buffer[l] = 13;
-  buffer[l + 2] = 10;
+  buffer[l + 1] = 10;
+
   // write to FD
-  write(socketFD, buffer, l+2);
+  int bytesWritten = write(socketFD, buffer, l + 2);
+  if (bytesWritten != l + 2) {
+    ERROR << "Failed to write back to client" << ENDL;
+    exit(1);
+  }
 }
 
 // *****************************************************************************
 // Send a 404
 // *****************************************************************************
 void send404(int socketFD) {
-  /* Using the sendLine() function, send the following:
-      - Send a properly formatted HTTP response with the error code 404
-      - Send the string, "content-type: text/html" to indicate we are sending a
-        message
-      - Send a blank line to terminate the header
-      - Send a friendly message that indicates what the problem is (file not
-        found or something like that)
-      - Send a blank line to indicate the end of the message body */
-
-  // sendLine(socketFD, "HTTP/1.1 400 ");
-
-  return;
+  DEBUG << "Sending 404 error" << ENDL;
+  // properly formatted HTTP response with the error code 404
+  sendLine(socketFD, "HTTP/1.1 400 Not Found");
+  // content-type: text/html" to indicate we are sending a message
+  sendLine(socketFD, "content-type: text/html");
+  // Send a blank line to terminate the header
+  sendLine(socketFD, "");
+  // Friendly error message
+  sendLine(socketFD, "File not found");
+  // Send a blank line to terminate the body
+  sendLine(socketFD, "");
 }
 
 // *****************************************************************************
 // Send a 400
 // *****************************************************************************
 void send400(int socketFD) {
-  /* Using the sendLine() function, send the following:
-      - Send a properly formatted HTTP response with the error code 404
-      - Send the string, "content-type: text/html" to indicate we are sending a
-        message
-      - Send a blank line to terminate the header
-      - Send a friendly message that indicates what the problem is (file not
-        found or something like that)
-      - Send a blank line to indicate the end of the message body */
-
-  return;
+  DEBUG << "Sending 400 error" << ENDL;
+  // properly formatted HTTP response with the error code 400
+  sendLine(socketFD, "HTTP/1.1 400 Bad Request");
+  // empty line to end header
+  sendLine(socketFD, "");
 }
 
-void sendFile(int socketFD, std::string filename) {}
+void sendFile(int socketFD, std::string filename) {
+  std::string pathname = "webFiles/" + filename;
+  DEBUG << "Checking for file " << pathname << ENDL;
+
+  struct stat statResult;
+  if (stat(pathname.c_str(), &statResult) == -1) {
+    // failed permissions check/file doesn't exist
+    return send404(socketFD);
+  }
+  int len = statResult.st_size;
+  DEBUG << "Found file of len " << len << ENDL;
+  // start response
+  sendLine(socketFD, "HTTP/1.1 200 OK");
+  // check if image or file
+  std::regex imgPattern("image\\d\\.jpg");
+  if (std::regex_search(pathname, imgPattern))
+    sendLine(socketFD, "content-type: image/jpeg");
+  else
+    sendLine(socketFD, "content-type: text/html");
+  // send file length
+  sendLine(socketFD, &"content-length: "[len]);
+
+  DEBUG << "Opening & reading file to serve" << ENDL;
+  std::ifstream fileIn(pathname);
+  if (!fileIn.is_open()) {
+    ERROR << "Problem reading file" << ENDL;
+    return send400(socketFD);
+  }
+
+  // read contents of file to char * buffer
+  char *buffer = (char *)malloc(len * sizeof(char));
+  std::streamsize bytesRead = fileIn.readsome(buffer, len);
+  if (len != bytesRead) {
+    ERROR << "File content length mismatched" << ENDL;
+    return send400(socketFD);
+  }
+
+  if (write(socketFD, buffer, bytesRead) == -1) {
+    ERROR << "Problem writing to socket" << ENDL;
+    return send400(socketFD);
+  }
+
+  DEBUG << "Successfully wrote file to socket" << ENDL;
+  free(buffer);
+  fileIn.close();
+}
 
 // *****************************************************************************
-// - Handles reading the line from the network and sending it back to the client
-// - Returns 1 if the client sends "QUIT" command, 0 if the client sends "CLOSE"
+// - Handles reading the request from the client and sending back an appropriate
+// response, always returns 0
 // *****************************************************************************
 int processConnection(int socketFD) {
-  std::string filename = "";
-  int returnCode = readRequest(socketFD, &filename);
+  int returnCode = readRequest(socketFD);
   switch (returnCode) {
   case 400:
     send400(socketFD);
@@ -218,12 +268,10 @@ int main(int argc, char *argv[]) {
 
   // test code here
 
-
-  
   // exit(0);
 
   // Creating the inital socket is the same as in a client.
-  listenFD = -1;
+  int connFD = -1, listenFD = -1;
   // Call socket() to create the socket you will use for lisening.
   listenFD = socket(AF_INET, SOCK_STREAM, 0);
   if (listenFD == -1) {
@@ -238,8 +286,8 @@ int main(int argc, char *argv[]) {
     for connections. */
   struct sockaddr_in servAddr;
   srand(time(NULL));
-  // int port = (rand() % 10000) + 1024;
-  int port = 1024;
+  // port = (rand() % 10000) + 1024;
+  port = 1024;
   bzero(&servAddr, sizeof(servAddr));
   servAddr.sin_family = PF_INET;
   servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -274,7 +322,7 @@ int main(int argc, char *argv[]) {
     will be used for the communication. */
   int quitProgram = 0;
   while (!quitProgram && !sigCode) {
-    connFD = 0;
+    connFD = -1;
 
     // The accept() call checks the listening queue for connection requests.
     DEBUG << "Calling accept(" << listenFD << ", NULL, NULL)." << ENDL;
