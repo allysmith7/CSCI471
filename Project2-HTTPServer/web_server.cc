@@ -48,6 +48,7 @@ int readRequest(int socketFD) {
       "GET\\s+\\/[\\w\\d]*.?[\\w\\d]*\\s+HTTP\\/\\d\\.\\d\r\n");
   std::regex noFilePattern("GET\\s+\\/\\s+HTTP/\\d\\.\\d\r\n");
   std::regex filePattern("(image\\d\\.jpg|file\\d\\.html)");
+  std::regex filePatternStrict("(image\\d\\.jpg|file\\d\\.html\\s)");
 
   // Read everything into a temporary buffer to isolate the header
   char *buffer = (char *)malloc(MAX_LEN * sizeof(char));
@@ -88,7 +89,7 @@ int readRequest(int socketFD) {
     // check for file name
     if (!regex_search(firstLine, noFilePattern)) {
       // file name found, validate and isolate
-      if (regex_search(firstLine, result, filePattern)) {
+      if (regex_search(firstLine, result, filePattern) && regex_search(firstLine, filePatternStrict)) {
         returnStatus = 200;
         filename = std::string(result[0].str());
         DEBUG << "Valid file found: " << filename;
@@ -166,12 +167,11 @@ void send400(int socketFD) {
 }
 
 void sendFile(int socketFD, std::string filename) {
-  std::string pathname = "webFiles/" + filename;
-  DEBUG << "Checking for file " << pathname << ENDL;
+  DEBUG << "Checking for file " << filename << ENDL;
 
   // get information about the file
   struct stat statResult;
-  if (stat(pathname.c_str(), &statResult) == -1) {
+  if (stat(filename.c_str(), &statResult) == -1) {
     // failed permissions check/file doesn't exist
     return send404(socketFD);
   }
@@ -183,7 +183,7 @@ void sendFile(int socketFD, std::string filename) {
 
   // check if image or file, send appropriate content-type
   std::regex imgPattern("image\\d\\.jpg");
-  if (std::regex_search(pathname, imgPattern))
+  if (std::regex_search(filename, imgPattern))
     sendLine(socketFD, "content-type: image/jpeg");
   else
     sendLine(socketFD, "content-type: text/html");
@@ -195,7 +195,7 @@ void sendFile(int socketFD, std::string filename) {
   sendLine(socketFD, "");
 
   DEBUG << "Opening & reading file to serve" << ENDL;
-  std::ifstream fileIn(pathname);
+  std::ifstream fileIn(filename);
   if (!fileIn.is_open()) {
     ERROR << "Problem reading file" << ENDL;
     return send400(socketFD);
