@@ -9,7 +9,7 @@
 CXX = g++
 LD = g++
 CXXFLAGS = -g -std=c++11 -DBOOST_LOG_DYN_LINK
-LDFLAGS = -g 
+LDFLAGS = -g
 
 #
 # You should be able to add object files here without changing anything else
@@ -43,4 +43,4 @@ submit:
 	rm -rf core project2 `whoami` `whoami`.tar ${OBJ_FILES}
 	mkdir `whoami`
 	cp Makefile README.txt *.h *.cc `whoami`
-	tar cfv `whoami`.tar `whoami`
+	tar zcfv `whoami`.tar `whoami`
