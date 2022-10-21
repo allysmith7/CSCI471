@@ -1,0 +1,36 @@
+SS  1   32
+SS  2
+SS  4
+SS  8
+SS  16
+SS  32
+CA  33
+CA  34
+CA  35
+CA  36
+CA  37
+CA  38
+CA  39
+CA  40
+CA  41
+CA  42
+FR  24  21      -- timeout
+FR  25  21      -- dup ACK
+CA  21  21      -- new ACK
+CA  22  21
+CA  23  21
+CA  24  21
+CA  25  21
+SS  1   12      -- timeout
+SS  2   12
+SS  4   12
+SS  8   12
+
+S   c   s
+t   w   s
+a   n   t
+t   d   h
+e       r
+        e
+        s
+        h
