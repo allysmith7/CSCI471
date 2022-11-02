@@ -9,7 +9,7 @@
 #include <math.h>
 
 
-inline int LOG_LEVEL = 3;
+inline int LOG_LEVEL = 3; // NOLINT
 #define TRACE   if (LOG_LEVEL > 5) { std::cout << "TRACE: "
 #define DEBUG   if (LOG_LEVEL > 4) { std::cout << "DEBUG: "
 #define INFO    if (LOG_LEVEL > 3) { std::cout << "INFO: "
