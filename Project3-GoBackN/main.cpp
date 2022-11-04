@@ -16,11 +16,11 @@ int main(int argc, char **argv) {
   double lossprob = -1.0;
   double corruptprob = - 1.0;
   double lambda = -1.0;
-  
+
   int opt;
 
   while ((opt = getopt(argc,argv,"n:l:c:t:d:")) != -1) {
-    
+
     switch (opt) {
     case 'n':
       nismmax = std::strtol(optarg,nullptr, 10);

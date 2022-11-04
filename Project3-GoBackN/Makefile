@@ -9,7 +9,7 @@
 CXX = g++
 LD = g++
 CXXFLAGS = -g  -std=c++17
-LDFLAGS = -g 
+LDFLAGS = -g
 
 #
 # You should be able to add object files here without changing anything else
@@ -21,7 +21,7 @@ INC_FILES = ${TARGET}.h includes.h main.h simulator.h
 #
 # Any libraries we might need.
 #
-#LIBRARYS = -lbsd -lboost_regex -lboost_log_setup -lboost_log  -lboost_thread -lboost_system -lpthread 
+#LIBRARYS = -lbsd -lboost_regex -lboost_log_setup -lboost_log  -lboost_thread -lboost_system -lpthread
 
 
 ${TARGET}: ${OBJ_FILES}
