@@ -30,7 +30,8 @@ the emulator, you're welcome to look at the code - but again, you should have
 to, and you defeinitely should not have to modify
 ******************************************************************/
 
-simulator::simulator(long n, double l, double c, double t) {
+simulator::simulator(long n, double l, double c, double t)
+{
 
   // ********************************************************************
   // * User configureable Variables.
@@ -58,38 +59,41 @@ simulator::simulator(long n, double l, double c, double t) {
   // ***************************************************************************
   // * Basic Sanity Checks
   // ***************************************************************************
-  if (nsimmax <= 0) {
+  if (nsimmax <= 0)
+  {
     FATAL << "Can't have a simulation without at least 1 message." << ENDL;
     exit(-1);
   }
-  if ((lossprob < 0) || (lossprob > 1)) {
+  if ((lossprob < 0) || (lossprob > 1))
+  {
     FATAL << "Invalid loss probability (" << lossprob << ")." << ENDL;
     exit(-1);
   }
-  if ((corruptprob < 0) || (corruptprob > 1)) {
+  if ((corruptprob < 0) || (corruptprob > 1))
+  {
     FATAL << "Invalid corruption probability (" << corruptprob << ")." << ENDL;
     exit(-1);
   }
-  if (lambda < 0) {
-    FATAL << "Invalid average delay between messages from the application ("
-          << lambda << ")." << ENDL;
+  if (lambda < 0)
+  {
+    FATAL << "Invalid average delay between messages from the application (" << lambda << ")." << ENDL;
     exit(-1);
   }
 
   INFO << "-----  Stop and Wait Network Simulator Version 1.1 --------" << ENDL;
   INFO << "Number of messages to simulate: " << nsimmax << ENDL;
   INFO << "Packet loss probability [0.0 for no loss]: " << lossprob << ENDL;
-  INFO << "Packet corruption probability [0.0 for no corruption]: "
-       << corruptprob << ENDL;
-  INFO << "Average time between messages from sender's layer5: " << lambda
-       << ENDL;
+  INFO << "Packet corruption probability [0.0 for no corruption]: " << corruptprob << ENDL;
+  INFO << "Average time between messages from sender's layer5: " << lambda << ENDL;
 }
 
-void simulator::go() {
+void simulator::go()
+{
   srand(time(nullptr));
 
   struct event *eventptr;
-  while (eventptr = evlist) {
+  while ((eventptr = evlist))
+  {
 
     //
     // Pop the next event off the list.
@@ -106,32 +110,39 @@ void simulator::go() {
     //
     // Process the event.
     //
-    if ((eventptr->evtype == FROM_LAYER5) && (nsim != nsimmax)) {
+    if ((eventptr->evtype == FROM_LAYER5) && (nsim != nsimmax))
+    {
 
       // This adds the next FROM_LAYER5 event to the event list.
       generate_next_arrival();
 
       /* fill in msg to give with string of same letter */
-      struct msg msg2give {};
-      std::fill(msg2give.data, msg2give.data + sizeof(msg2give.data),
-                (char)(97 + (nsim % 26)));
-      DEBUG << "MAINLOOP (" << kr_time << "): Triggering "
-            << EVENT_NAMES[eventptr->evtype] << ", on side "
+      struct msg msg2give
+      {
+      };
+      std::fill(msg2give.data, msg2give.data + sizeof(msg2give.data), (char)(97 + (nsim % 26)));
+      DEBUG << "MAINLOOP (" << kr_time << "): Triggering " << EVENT_NAMES[eventptr->evtype] << ", on side "
             << SIDE_NAMES[eventptr->eventity] << ", " << msg2give << ENDL;
 
       // Pass the message down to the student.
-      if (eventptr->eventity == A) {
-        if (rdt_sendA(msg2give)) {
+      if (eventptr->eventity == A)
+      {
+        if (rdt_sendA(msg2give))
+        {
           nsim++;
         }
-      } else {
-        if (rdt_sendB(msg2give)) {
+      }
+      else
+      {
+        if (rdt_sendB(msg2give))
+        {
           nsim++;
         }
       }
     }
 
-    if (eventptr->evtype == FROM_LAYER3) {
+    if (eventptr->evtype == FROM_LAYER3)
+    {
       struct pkt pkt2give = {.seqnum = eventptr->pktptr->seqnum,
                              .acknum = eventptr->pktptr->acknum,
                              .checksum = eventptr->pktptr->checksum,
@@ -140,8 +151,7 @@ void simulator::go() {
       for (int i = 0; i < 20; i++)
         pkt2give.payload[i] = eventptr->pktptr->payload[i];
 
-      DEBUG << "MAINLOOP (" << kr_time << "): Triggering "
-            << EVENT_NAMES[eventptr->evtype] << ", on side "
+      DEBUG << "MAINLOOP (" << kr_time << "): Triggering " << EVENT_NAMES[eventptr->evtype] << ", on side "
             << SIDE_NAMES[eventptr->eventity] << ", " << pkt2give << ENDL;
       if (eventptr->eventity == A) /* deliver packet by calling */
         rdt_rcvA(pkt2give);        /* appropriate entity */
@@ -151,9 +161,9 @@ void simulator::go() {
       free(eventptr->pktptr); /* free the memory for packet */
     }
 
-    if (eventptr->evtype == TIMER_INTERRUPT) {
-      DEBUG << "MAINLOOP (" << kr_time << "): Triggering "
-            << EVENT_NAMES[eventptr->evtype] << ", on side "
+    if (eventptr->evtype == TIMER_INTERRUPT)
+    {
+      DEBUG << "MAINLOOP (" << kr_time << "): Triggering " << EVENT_NAMES[eventptr->evtype] << ", on side "
             << SIDE_NAMES[eventptr->eventity] << ENDL;
       if (eventptr->eventity == A)
         A_timeout();
@@ -164,8 +174,7 @@ void simulator::go() {
     free(eventptr);
   }
 
-  INFO << "MAINLOOP (" << kr_time << "): Simulator terminated after sending "
-       << nsim << " msgs from layer5." << ENDL;
+  INFO << "MAINLOOP (" << kr_time << "): Simulator terminated after sending " << nsim << " msgs from layer5." << ENDL;
 }
 
 /****************************************************************************/
@@ -173,12 +182,16 @@ void simulator::go() {
 /* isolate all random number generation in one location.  We assume that the*/
 /* system-supplied rand() function return an int in therange [0,mmm]        */
 /****************************************************************************/
-double simulator::jimsrand() { return ((double)random() / (double)RAND_MAX); }
+double simulator::jimsrand()
+{
+  return ((double)random() / (double)RAND_MAX);
+}
 
 /********************* EVENT HANDLINE ROUTINES *******/
 /*  The next set of routines handle the event list   */
 /*****************************************************/
-void simulator::generate_next_arrival() {
+void simulator::generate_next_arrival()
+{
 
   auto *evptr = new event();
 
@@ -198,31 +211,39 @@ void simulator::generate_next_arrival() {
   insertevent(evptr);
 }
 
-void simulator::insertevent(struct event *p) {
+void simulator::insertevent(struct event *p)
+{
   struct event *q, *qold;
 
-  TRACE << "INSERTEVENT (" << kr_time << "): Inserting "
-        << EVENT_NAMES[p->evtype] << " type event to happen at " << p->evtime
-        << ENDL;
+  TRACE << "INSERTEVENT (" << kr_time << "): Inserting " << EVENT_NAMES[p->evtype] << " type event to happen at "
+        << p->evtime << ENDL;
 
   q = evlist; /* q points to header of list in which p struct inserted */
-  if (q == nullptr) { /* list is empty */
+  if (q == nullptr)
+  { /* list is empty */
     evlist = p;
     p->next = nullptr;
     p->prev = nullptr;
-  } else {
+  }
+  else
+  {
     for (qold = q; q != nullptr && p->evtime > q->evtime; q = q->next)
       qold = q;
-    if (q == nullptr) { /* end of list */
+    if (q == nullptr)
+    { /* end of list */
       qold->next = p;
       p->prev = qold;
       p->next = nullptr;
-    } else if (q == evlist) { /* front of list */
+    }
+    else if (q == evlist)
+    { /* front of list */
       p->next = evlist;
       p->prev = nullptr;
       p->next->prev = p;
       evlist = p;
-    } else { /* middle of list */
+    }
+    else
+    { /* middle of list */
       p->next = q;
       p->prev = q->prev;
       q->prev->next = p;
@@ -231,28 +252,33 @@ void simulator::insertevent(struct event *p) {
   }
 }
 
-void simulator::printevlist() {
+void simulator::printevlist()
+{
   struct event *q;
   printf("--------------\nEvent List Follows:\n");
-  for (q = evlist; q != nullptr; q = q->next) {
-    printf("Event time: %f, type: %d entity: %d\n", q->evtime, q->evtype,
-           q->eventity);
+  for (q = evlist; q != nullptr; q = q->next)
+  {
+    printf("Event time: %f, type: %d entity: %d\n", q->evtime, q->evtype, q->eventity);
   }
   printf("--------------\n");
 }
 
-void simulator::reportPacketsInFlight(int AorB) {
+void simulator::reportPacketsInFlight(int AorB)
+{
   struct event *q;
   std::list<int> sequenceNumbers;
 
-  for (q = evlist; q != nullptr; q = q->next) {
-    if ((q->evtype == FROM_LAYER3) && (q->eventity == AorB)) {
+  for (q = evlist; q != nullptr; q = q->next)
+  {
+    if ((q->evtype == FROM_LAYER3) && (q->eventity == AorB))
+    {
       sequenceNumbers.push_back(q->pktptr->seqnum);
     }
   }
-  std::cout << "TOLAYER3 (" << kr_time << "): " << sequenceNumbers.size()
-            << " packets in flight to side " << SIDE_NAMES[AorB] << " (";
-  for (auto sn : sequenceNumbers) {
+  std::cout << "TOLAYER3 (" << kr_time << "): " << sequenceNumbers.size() << " packets in flight to side "
+            << SIDE_NAMES[AorB] << " (";
+  for (auto sn : sequenceNumbers)
+  {
     std::cout << sn << ", ";
   }
   std::cout << ")" << std::endl;
@@ -261,51 +287,51 @@ void simulator::reportPacketsInFlight(int AorB) {
 /********************** Student-callable ROUTINES ***********************/
 
 /* called by students routine to cancel a previously-started timer */
-void simulator::stop_timer(int AorB) {
+void simulator::stop_timer(int AorB)
+{
 
-  DEBUG << "STOPTIMER (" << kr_time << "): stopping timer on side "
-        << SIDE_NAMES[AorB] << ENDL;
+  DEBUG << "STOPTIMER (" << kr_time << "): stopping timer on side " << SIDE_NAMES[AorB] << ENDL;
 
   /* for (q=evlist; q!=NULL && q->next!=NULL; q = q->next)  */
   for (struct event *q = evlist; q != nullptr; q = q->next)
-    if ((q->evtype == TIMER_INTERRUPT && q->eventity == AorB)) {
+    if ((q->evtype == TIMER_INTERRUPT && q->eventity == AorB))
+    {
       /* remove this event */
       if (q->next == nullptr && q->prev == nullptr)
         evlist = nullptr;          /* remove first and only event on list */
       else if (q->next == nullptr) /* end of list - there is one in front */
         q->prev->next = nullptr;
-      else if (q == evlist) { /* front of list - there must be event after */
+      else if (q == evlist)
+      { /* front of list - there must be event after */
         q->next->prev = nullptr;
         evlist = q->next;
-      } else { /* middle of list */
+      }
+      else
+      { /* middle of list */
         q->next->prev = q->prev;
         q->prev->next = q->next;
       }
-      TRACE << "STOPTIMER (" << kr_time << "): removing timer scheduled for "
-            << q->evtime << ENDL;
+      TRACE << "STOPTIMER (" << kr_time << "): removing timer scheduled for " << q->evtime << ENDL;
       free(q);
       return;
     }
-  WARNING << "STOPTIMER (" << kr_time
-          << "): WARNING: unable to cancel your timer. It wasn't running."
-          << ENDL;
+  WARNING << "STOPTIMER (" << kr_time << "): WARNING: unable to cancel your timer. It wasn't running." << ENDL;
 }
 
-void simulator::start_timer(int AorB, float increment) {
+void simulator::start_timer(int AorB, float increment)
+{
   struct event *q;
   struct event *evptr;
 
-  DEBUG << "STARTTIMER (" << kr_time << "): starting timer to expire at "
-        << kr_time + increment << ENDL;
+  DEBUG << "STARTTIMER (" << kr_time << "): starting timer to expire at " << kr_time + increment << ENDL;
 
   /* be nice: check to see if timer is already started, if so, then  warn */
   /* for (q=evlist; q!=NULL && q->next!=NULL; q = q->next)  */
   for (q = evlist; q != nullptr; q = q->next)
-    if ((q->evtype == TIMER_INTERRUPT) && (q->eventity == AorB)) {
-      WARNING
-          << "STARTTIMER (" << kr_time
-          << "): WARNING: unable to start timer, there is one already running, "
-          << "scheduled to go off at " << q->evtime << ENDL;
+    if ((q->evtype == TIMER_INTERRUPT) && (q->eventity == AorB))
+    {
+      WARNING << "STARTTIMER (" << kr_time << "): WARNING: unable to start timer, there is one already running, "
+              << "scheduled to go off at " << q->evtime << ENDL;
       return;
     }
 
@@ -318,7 +344,8 @@ void simulator::start_timer(int AorB, float increment) {
 }
 
 /************************** TOLAYER3 ***************/
-void simulator::udt_send(int AorB, struct pkt packet) {
+void simulator::udt_send(int AorB, struct pkt packet)
+{
   struct pkt *mypktptr;
   struct event *evptr, *q;
   double lastime, x;
@@ -326,7 +353,8 @@ void simulator::udt_send(int AorB, struct pkt packet) {
   ntolayer3++;
 
   /* simulate losses: */
-  if (jimsrand() < lossprob) {
+  if (jimsrand() < lossprob)
+  {
     nlost++;
     TRACE << "TOLAYER3: Loosing packet: " << packet << ENDL;
     return;
@@ -358,47 +386,47 @@ void simulator::udt_send(int AorB, struct pkt packet) {
   evptr->evtime = lastime + 1 + 9 * jimsrand();
 
   /* simulate corruption: */
-  if (jimsrand() < corruptprob) {
+  if (jimsrand() < corruptprob)
+  {
     ncorrupt++;
     if ((x = jimsrand()) < .75)
-      std::fill(mypktptr->payload,
-                mypktptr->payload + sizeof(mypktptr->payload),
-                (rand() % 93) + 33);
+      std::fill(mypktptr->payload, mypktptr->payload + sizeof(mypktptr->payload), (rand() % 93) + 33);
     else if (x < .875)
       mypktptr->seqnum = rand();
     else
       mypktptr->acknum = rand();
-    TRACE << "TOLAYER3 (" << kr_time << ") Corrupting packet " << packet
-          << " as " << *mypktptr << ENDL;
+    TRACE << "TOLAYER3 (" << kr_time << ") Corrupting packet " << packet << " as " << *mypktptr << ENDL;
   }
 
-  DEBUG << "TOLAYER3 (" << kr_time << "): Scheduling " << packet
-        << " to arrive on side " << SIDE_NAMES[(AorB + 1) % 2] << " at "
-        << evptr->evtime << "." << ENDL;
+  DEBUG << "TOLAYER3 (" << kr_time << "): Scheduling " << packet << " to arrive on side " << SIDE_NAMES[(AorB + 1) % 2]
+        << " at " << evptr->evtime << "." << ENDL;
   insertevent(evptr);
 
   if ((BIDIRECTIONAL) || (AorB == A))
     reportPacketsInFlight((AorB + 1) % 2);
 }
 
-void simulator::deliver_data(int AorB, struct msg message) {
+void simulator::deliver_data(int AorB, struct msg message)
+{
 
   bool validMessage = true;
   char expected = (char)(97 + (messagesReceived[AorB] % 26));
   for (auto c : message.data)
-    if ((c != expected) && (validMessage)) {
-      WARNING << "Out of order data received by application on side "
-              << SIDE_NAMES[AorB] << ENDL;
+    if ((c != expected) && (validMessage))
+    {
+      WARNING << "Out of order data received by application on side " << SIDE_NAMES[AorB] << ENDL;
       WARNING << "Expected " << expected << " but got " << c << ENDL;
       validMessage = false;
     }
 
   if (validMessage)
-    DEBUG << "deliver_data (" << kr_time
-          << "): Data received at application layer on side "
-          << SIDE_NAMES[AorB] << ", (" << message << ")." << ENDL;
+    DEBUG << "deliver_data (" << kr_time << "): Data received at application layer on side " << SIDE_NAMES[AorB]
+          << ", (" << message << ")." << ENDL;
 
   messagesReceived[AorB]++;
 }
 
-double simulator::getSimulatorClock() { return (kr_time); }
+double simulator::getSimulatorClock()
+{
+  return (kr_time);
+}

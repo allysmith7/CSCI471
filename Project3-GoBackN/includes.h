@@ -1,3 +1,4 @@
+// clang-format off
 #include <cstdio>
 #include <unistd.h>
 #include <strings.h>
@@ -8,6 +9,9 @@
 #include <algorithm>
 #include <math.h>
 
+#include "simulator.h"
+#include "main.h"
+#include "GoBackN.h"
 
 inline int LOG_LEVEL = 3; // NOLINT
 #define TRACE   if (LOG_LEVEL > 5) { std::cout << "TRACE: "
@@ -18,9 +22,3 @@ inline int LOG_LEVEL = 3; // NOLINT
 #define FATAL   if (LOG_LEVEL > 0) { std::cout << "FATAL: "
 // #define ENDL  " (" << __FILE__ << ":" << __LINE__ << ")" << std::endl; }
 #define ENDL "" << std::endl; }
-
-
-
-#include "simulator.h"
-#include "main.h"
-#include "GoBackN.h"

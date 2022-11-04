@@ -18,14 +18,16 @@
 /* a "msg" is the data unit passed from layer 5 (teachers code) to layer  */
 /* 4 (students' code).  It contains the data (characters) to be delivered */
 /* to layer 5 via the students transport level protocol entities.         */
-struct msg {
+struct msg
+{
   char data[20];
 };
 
 /* a packet is the data unit passed from layer 4 (students code) to layer */
 /* 3 (teachers code).  Note the pre-defined packet structure, which all   */
 /* students must follow. */
-struct pkt {
+struct pkt
+{
   int seqnum;
   int acknum;
   int checksum;
@@ -48,7 +50,8 @@ the emulator, you're welcome to look at the code - but again, you should not
 have to, and you defeinitely should not have to modify
 ******************************************************************/
 
-struct event {
+struct event
+{
   double evtime;      /* event time */
   int evtype;         /* event type code */
   int eventity;       /* entity where event occurs */
@@ -61,14 +64,14 @@ struct event {
 #define TIMER_INTERRUPT 0
 #define FROM_LAYER5 1
 #define FROM_LAYER3 2
-static const char *EVENT_NAMES[] = {"TIMER_INTERRUPT", "FROM_LAYER5",
-                                    "FROM_LAYER3"};
+static const char *EVENT_NAMES[] = {"TIMER_INTERRUPT", "FROM_LAYER5", "FROM_LAYER3"};
 
 #define A 0
 #define B 1
 static const char *SIDE_NAMES[] = {"A", "B"};
 
-class simulator {
+class simulator
+{
 private:
   long nsim;    /* number of messages from 5 to 4 so far */
   long nsimmax; /* number of msgs to generate, then stop */

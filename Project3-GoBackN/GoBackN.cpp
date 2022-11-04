@@ -1,4 +1,5 @@
 #include "includes.h"
+#include <cstring>
 #include <queue>
 
 // ***************************************************************************
@@ -8,31 +9,31 @@
 // ***************************************************************************
 
 // state variables
-std::queue<struct pkt> window;
+struct pkt sndpktA[10];
+struct pkt sndpktB;
 
 // helper functions
-struct pkt make_pkt(int sequenceNumber, char data[20])
+struct pkt make_pkt(int sequenceNumber, int ackNumber, char data[20])
 {
-    struct pkt sndpkt;
+  struct pkt packet;
 
-    sndpkt.seqnum = 0;
-    sndpkt.acknum = 0;
-    for (int i = 0; i < 20; i++)
-        sndpkt.payload[i] = data[i];
-    sndpkt.checksum = computeChecksum(sndpkt);
+  packet.seqnum = sequenceNumber;
+  packet.acknum = ackNumber;
+  memcpy(packet.payload, data, 20);
+  packet.checksum = compute_checksum(packet);
 
-    return sndpkt;
+  return packet;
 }
 
-int computeChecksum(struct pkt packet)
+uint compute_checksum(struct pkt packet)
 {
-    unsigned int checksum = 0b0;
-    checksum += packet.seqnum;
-    checksum += packet.acknum;
-    for (int i = 0; i < 20; i++)
-        checksum += packet.payload[i];
+  uint checksum = 0;
+  checksum += packet.seqnum;
+  checksum += packet.acknum;
+  for (char c : packet.payload)
+    checksum += (int)c;
 
-    return checksum;
+  return checksum;
 }
 
 // ***************************************************************************
@@ -56,16 +57,15 @@ void B_init()
 // ***************************************************************************
 bool rdt_sendA(struct msg message)
 {
-    INFO << "RDT_SEND_A: Layer 4 on side A has received a message from the application that should be sent to side B: "
-         << message << ENDL;
+  INFO << "RDT_SEND_A: Layer 4 on side A has received a message from the application that should be sent to side B: "
+       << message << ENDL;
 
-    bool accepted = false;
+  bool accepted = true;
 
-    struct pkt sndpkt = make_pkt(0, message.data);
-    simulation->udt_send(A, sndpkt);
-    accepted = true;
+  struct pkt packet = make_pkt(0, 0, message.data);
+  simulation->udt_send(A, packet);
 
-    return (accepted);
+  return accepted;
 }
 
 // ***************************************************************************
@@ -80,12 +80,12 @@ void rdt_rcvA(struct pkt packet)
 // ***************************************************************************
 bool rdt_sendB(struct msg message)
 {
-    INFO << "RDT_SEND_B: Layer 4 on side B has received a message from the application that should be sent to side A: "
-         << message << ENDL;
+  INFO << "RDT_SEND_B: Layer 4 on side B has received a message from the application that should be sent to side A: "
+       << message << ENDL;
 
-    bool accepted = false;
+  bool accepted = false;
 
-    return (accepted);
+  return (accepted);
 }
 
 // ***************************************************************************
@@ -93,14 +93,13 @@ bool rdt_sendB(struct msg message)
 // ***************************************************************************
 void rdt_rcvB(struct pkt packet)
 {
-    INFO << "RTD_RCV_B: Layer 4 on side B has received a packet from layer 3 sent over the network from side A:"
-         << packet << ENDL;
+  INFO << "RTD_RCV_B: Layer 4 on side B has received a packet from layer 3 sent over the network from side A:" << packet
+       << ENDL;
 
-    struct msg message;
-    for (int i = 0; i < 20; i++)
-        message.data[i] = packet.payload[i];
+  struct msg message;
+  memcpy(message.data, packet.payload, 20);
 
-    simulation->deliver_data(B, message);
+  simulation->deliver_data(B, message);
 }
 
 // ***************************************************************************
@@ -108,7 +107,7 @@ void rdt_rcvB(struct pkt packet)
 // ***************************************************************************
 void A_timeout()
 {
-    INFO << "A_TIMEOUT: Side A's timer has gone off." << ENDL;
+  INFO << "A_TIMEOUT: Side A's timer has gone off." << ENDL;
 }
 
 // ***************************************************************************
@@ -116,5 +115,5 @@ void A_timeout()
 // ***************************************************************************
 void B_timeout()
 {
-    INFO << "B_TIMEOUT: Side B's timer has gone off." << ENDL;
+  INFO << "B_TIMEOUT: Side B's timer has gone off." << ENDL;
 }
