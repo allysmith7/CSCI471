@@ -36,3 +36,8 @@
 *.out
 *.app
 GoBackN
+.GoBackN*
+*.pl
+*.zsh
+
+# text

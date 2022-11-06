@@ -53,6 +53,10 @@ simulator::simulator(long n, double l, double c, double t)
   kr_time = 0.0;
   messagesReceived[A] = 0;
   messagesReceived[B] = 0;
+  messagesSent[A] = 0;
+  messagesSent[B] = 0;
+  messagesRejected[A] = 0;
+  messagesRejected[B] = 0;
   srandom(time(nullptr));
   generate_next_arrival();
 
@@ -85,6 +89,21 @@ simulator::simulator(long n, double l, double c, double t)
   INFO << "Packet loss probability [0.0 for no loss]: " << lossprob << ENDL;
   INFO << "Packet corruption probability [0.0 for no corruption]: " << corruptprob << ENDL;
   INFO << "Average time between messages from sender's layer5: " << lambda << ENDL;
+}
+
+void simulator::incReceived(int AorB)
+{
+  messagesReceived[AorB]++;
+}
+
+void simulator::incRejections(int AorB)
+{
+  messagesRejected[AorB]++;
+}
+
+void simulator::incRepetitions(int AorB)
+{
+  messagesRepeated[AorB]++;
 }
 
 void simulator::go()
@@ -175,6 +194,19 @@ void simulator::go()
   }
 
   INFO << "MAINLOOP (" << kr_time << "): Simulator terminated after sending " << nsim << " msgs from layer5." << ENDL;
+  DEBUG << "MAINLOOP stats: "
+        << "nsim: " << nsim << std::endl
+        << "ntolayer3: " << ntolayer3 << std::endl
+        << "nlost: " << nlost << std::endl
+        << "ncorrupt: " << ncorrupt << std::endl
+        << "Received[A]: " << messagesReceived[A] << std::endl
+        << "Received[B]: " << messagesReceived[B] << std::endl
+        << "Sent[A]: " << messagesSent[A] << std::endl
+        << "Sent[B]: " << messagesSent[B] << std::endl
+        << "Rejected[A]: " << messagesRejected[A] << std::endl
+        << "Rejected[B]: " << messagesRejected[B] << std::endl
+        << "Repeated[A]: " << messagesRepeated[A] << std::endl
+        << "Repeated[B]: " << messagesRepeated[B] << ENDL;
 }
 
 /****************************************************************************/
@@ -351,6 +383,7 @@ void simulator::udt_send(int AorB, struct pkt packet)
   double lastime, x;
 
   ntolayer3++;
+  messagesSent[AorB]++;
 
   /* simulate losses: */
   if (jimsrand() < lossprob)

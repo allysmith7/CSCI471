@@ -2,6 +2,7 @@
 // ***********************************************************
 // ** If you want to define other functions, put them here.
 // ***********************************************************
+#include <ostream>
 void A_init();
 void B_init();
 

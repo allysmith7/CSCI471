@@ -1,6 +1,10 @@
 #include "includes.h"
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <queue>
+#include <sys/types.h>
 
 // ***************************************************************************
 // * ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -8,9 +12,17 @@
 // * These are the functions you need to fill in.
 // ***************************************************************************
 
+#define WINDOW_SIZE 10
+// clang-format off
+char ACK[20] = {'\x06', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x20', '\x21'};
+// clang-format on
+
 // state variables
-struct pkt sndpktA[10];
+struct pkt sndpktA[WINDOW_SIZE];
 struct pkt sndpktB;
+uint base, nextseqnum, expectedseqnum;
+double timeSent[WINDOW_SIZE], timeACKed[WINDOW_SIZE];
+double estimatedRTT = 50.0, devRTT = 25.0;
 
 // helper functions
 struct pkt make_pkt(int sequenceNumber, int ackNumber, char data[20])
@@ -25,6 +37,31 @@ struct pkt make_pkt(int sequenceNumber, int ackNumber, char data[20])
   return packet;
 }
 
+void update_rtt_estimates(int sequenceNumber)
+{
+  int index = sequenceNumber % WINDOW_SIZE;
+  TRACE << "UPDATE_RTT (" << simulation->getSimulatorClock() << "): seq: " << sequenceNumber << std::endl
+        << "sent: " << timeSent[index] << std::endl
+        << "ackd: " << timeACKed[index] << ENDL;
+
+  double sampleRTT = timeACKed[index] - timeSent[index];
+
+  double p = 0.05;
+  estimatedRTT = (1 - p) * estimatedRTT + p * sampleRTT;
+
+  p = 0.1;
+  devRTT = (1 - p) * devRTT + p * std::abs(sampleRTT - estimatedRTT);
+
+  TRACE << "UPDATE_RTT new values - est: " << estimatedRTT << " dev: " << devRTT << ENDL;
+}
+
+uint get_timeout_len()
+{
+  double timeout = estimatedRTT + 2 * devRTT;
+  DEBUG << "GET_TIMEOUT (" << simulation->getSimulatorClock() << ") currently " << timeout << ENDL;
+  return timeout;
+}
+
 uint compute_checksum(struct pkt packet)
 {
   uint checksum = 0;
@@ -36,12 +73,20 @@ uint compute_checksum(struct pkt packet)
   return checksum;
 }
 
+bool is_corrupted(struct pkt packet)
+{
+  uint calculated = compute_checksum(packet);
+  return packet.checksum != calculated;
+}
+
 // ***************************************************************************
 // * The following routine will be called once (only) before any other
 // * entity A routines are called. You can use it to do any initialization
 // ***************************************************************************
 void A_init()
 {
+  base = 1;
+  nextseqnum = 1;
 }
 
 // ***************************************************************************
@@ -50,6 +95,8 @@ void A_init()
 // ***************************************************************************
 void B_init()
 {
+  expectedseqnum = 1;
+  sndpktB = make_pkt(nextseqnum, expectedseqnum, ACK);
 }
 
 // ***************************************************************************
@@ -57,13 +104,36 @@ void B_init()
 // ***************************************************************************
 bool rdt_sendA(struct msg message)
 {
-  INFO << "RDT_SEND_A: Layer 4 on side A has received a message from the application that should be sent to side B: "
-       << message << ENDL;
+  INFO << "RDT_SEND_A (" << simulation->getSimulatorClock()
+       << ") Layer 4 on side A has received a message from the application that should be sent to side B: " << message
+       << ENDL;
 
-  bool accepted = true;
+  bool accepted;
 
-  struct pkt packet = make_pkt(0, 0, message.data);
-  simulation->udt_send(A, packet);
+  if (nextseqnum < base + WINDOW_SIZE)
+  {
+    TRACE << "RDT_SEND_A: window has space, sending..." << ENDL;
+    accepted = true;
+    struct pkt packet = make_pkt(nextseqnum, 0, message.data);
+
+    sndpktA[nextseqnum % WINDOW_SIZE] = packet;
+    timeSent[packet.seqnum % WINDOW_SIZE] = simulation->getSimulatorClock();
+    simulation->udt_send(A, packet);
+
+    // if at start of window, start timer
+    if (base == nextseqnum)
+    {
+      uint rtt = get_timeout_len();
+      simulation->start_timer(A, rtt);
+    }
+    nextseqnum++;
+  }
+  else
+  {
+    TRACE << "RDT_SEND_A: window was full, rejecting..." << ENDL;
+    simulation->incRejections(A);
+    accepted = false;
+  }
 
   return accepted;
 }
@@ -73,6 +143,34 @@ bool rdt_sendA(struct msg message)
 // ***************************************************************************
 void rdt_rcvA(struct pkt packet)
 {
+  INFO << "RDT_RCV_A (" << simulation->getSimulatorClock() << ") Layer 4 on side A has received a packet from side B "
+       << packet << ENDL;
+  simulation->incReceived(A);
+  if (!is_corrupted(packet))
+  {
+    int i = packet.acknum % WINDOW_SIZE;
+    double rtt = simulation->getSimulatorClock() - timeSent[i];
+    DEBUG << "RDT_RCV_A: rtt of " << rtt << ENDL;
+
+    if (rtt >= 0)
+    {
+      timeACKed[i] = simulation->getSimulatorClock();
+      base = packet.acknum + 1;
+      simulation->stop_timer(A);
+      if (base == nextseqnum)
+      {
+        TRACE << "RDT_RCV_A: " << base << " == " << nextseqnum << ENDL;
+      }
+      else
+      {
+        update_rtt_estimates(timeACKed[i]);
+        TRACE << "RDT_RCV_A: " << base << " != " << nextseqnum << ENDL;
+        simulation->start_timer(A, get_timeout_len());
+      }
+      return;
+    }
+  }
+  simulation->incRejections(B);
 }
 
 // ***************************************************************************
@@ -80,8 +178,9 @@ void rdt_rcvA(struct pkt packet)
 // ***************************************************************************
 bool rdt_sendB(struct msg message)
 {
-  INFO << "RDT_SEND_B: Layer 4 on side B has received a message from the application that should be sent to side A: "
-       << message << ENDL;
+  INFO << "RDT_SEND_B (" << simulation->getSimulatorClock()
+       << ") Layer 4 on side B has received a message from the application that should be sent to side A: " << message
+       << ENDL;
 
   bool accepted = false;
 
@@ -93,13 +192,27 @@ bool rdt_sendB(struct msg message)
 // ***************************************************************************
 void rdt_rcvB(struct pkt packet)
 {
-  INFO << "RTD_RCV_B: Layer 4 on side B has received a packet from layer 3 sent over the network from side A:" << packet
-       << ENDL;
+  INFO << "RTD_RCV_B (" << simulation->getSimulatorClock()
+       << ") Layer 4 on side B has received a packet from layer 3 sent over the network from side A:" << packet
+       << ",ex: " << expectedseqnum << ENDL;
 
-  struct msg message;
-  memcpy(message.data, packet.payload, 20);
+  if (!is_corrupted(packet) && packet.seqnum == expectedseqnum)
+  {
+    DEBUG << "RTD_RCV_B: Packet was in-tact and in-order, passing up & send new ACK" << ENDL;
+    struct msg message;
+    memcpy(message.data, packet.payload, 20);
+    simulation->deliver_data(B, message);
 
-  simulation->deliver_data(B, message);
+    sndpktB = make_pkt(0, packet.seqnum, ACK);
+    simulation->udt_send(B, sndpktB);
+    expectedseqnum++;
+  }
+  else
+  {
+    DEBUG << "RTD_RCV_B: Packet was either corrupted or out of order, sending old ACK" << ENDL;
+    simulation->udt_send(B, sndpktB);
+    simulation->incRepetitions(B);
+  }
 }
 
 // ***************************************************************************
@@ -107,7 +220,16 @@ void rdt_rcvB(struct pkt packet)
 // ***************************************************************************
 void A_timeout()
 {
-  INFO << "A_TIMEOUT: Side A's timer has gone off." << ENDL;
+  INFO << "A_TIMEOUT (" << simulation->getSimulatorClock() << ") Side A's timer has gone off." << ENDL;
+  TRACE << "A_TIMEOUT: Sending packets from " << base << " to " << nextseqnum << ENDL;
+  simulation->stop_timer(A);
+  simulation->start_timer(A, 2 * (estimatedRTT + 4 * devRTT));
+
+  for (uint i = base; i < nextseqnum; i++)
+  {
+    simulation->udt_send(A, sndpktA[i % WINDOW_SIZE]);
+    simulation->incRepetitions(A);
+  }
 }
 
 // ***************************************************************************
@@ -115,5 +237,5 @@ void A_timeout()
 // ***************************************************************************
 void B_timeout()
 {
-  INFO << "B_TIMEOUT: Side B's timer has gone off." << ENDL;
+  INFO << "B_TIMEOUT (" << simulation->getSimulatorClock() << ") Side B's timer has gone off." << ENDL;
 }

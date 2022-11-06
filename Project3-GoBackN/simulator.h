@@ -83,8 +83,10 @@ private:
   int nlost;               /* number lost in media */
   int ncorrupt;            /* number corrupted by media*/
   struct event *evlist;    /* the event list */
-  int messagesReceived[2]; /* The number of messages received by the application
-                            */
+  int messagesReceived[2]; /* The number of messages received by the program */
+  int messagesSent[2];     /* The number of messages sent by the program */
+  int messagesRejected[2]; /* The number of messages rejected by the program */
+  int messagesRepeated[2]; /* The number of messages repeated by the program */
 
   double jimsrand();
   void generate_next_arrival();
@@ -100,4 +102,7 @@ public:
   void start_timer(int AorB, float increment);
   void udt_send(int AorB, struct pkt packet);
   void deliver_data(int AorB, struct msg message);
+  void incReceived(int AorB);
+  void incRejections(int AorB);
+  void incRepetitions(int AorB);
 };
