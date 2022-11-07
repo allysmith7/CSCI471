@@ -29,9 +29,11 @@ struct pkt make_pkt(int sequenceNumber, int ackNumber, char data[20])
 {
   struct pkt packet;
 
+  // create packet with provided sequence number, etc.
   packet.seqnum = sequenceNumber;
   packet.acknum = ackNumber;
   memcpy(packet.payload, data, 20);
+  // fill in checksum based on values provided
   packet.checksum = compute_checksum(packet);
 
   return packet;
@@ -44,8 +46,10 @@ void update_rtt_estimates(int sequenceNumber)
         << "sent: " << timeSent[index] << std::endl
         << "ackd: " << timeACKed[index] << ENDL;
 
+  // calculate the sample RTT for a given packet
   double sampleRTT = timeACKed[index] - timeSent[index];
 
+  // update estimatedRTT and devRTT based on existing values, EWMA
   double p = 0.05;
   estimatedRTT = (1 - p) * estimatedRTT + p * sampleRTT;
 
@@ -57,6 +61,7 @@ void update_rtt_estimates(int sequenceNumber)
 
 uint get_timeout_len()
 {
+  // calculate timeout length based on stored estimatedRTT and devRTT
   double timeout = estimatedRTT + 2 * devRTT;
   DEBUG << "GET_TIMEOUT (" << simulation->getSimulatorClock() << ") currently " << timeout << ENDL;
   return timeout;
@@ -64,6 +69,7 @@ uint get_timeout_len()
 
 uint compute_checksum(struct pkt packet)
 {
+  // simple checksum, add each component together
   uint checksum = 0;
   checksum += packet.seqnum;
   checksum += packet.acknum;
@@ -112,8 +118,11 @@ bool rdt_sendA(struct msg message)
 
   if (nextseqnum < base + WINDOW_SIZE)
   {
+    // if there is room in the window, accept packet
     TRACE << "RDT_SEND_A: window has space, sending..." << ENDL;
     accepted = true;
+
+    // create, store, and send packet
     struct pkt packet = make_pkt(nextseqnum, 0, message.data);
 
     sndpktA[nextseqnum % WINDOW_SIZE] = packet;
@@ -130,6 +139,7 @@ bool rdt_sendA(struct msg message)
   }
   else
   {
+    // if window is full, reject packet
     TRACE << "RDT_SEND_A: window was full, rejecting..." << ENDL;
     simulation->incRejections(A);
     accepted = false;
@@ -146,6 +156,8 @@ void rdt_rcvA(struct pkt packet)
   INFO << "RDT_RCV_A (" << simulation->getSimulatorClock() << ") Layer 4 on side A has received a packet from side B "
        << packet << ENDL;
   simulation->incReceived(A);
+
+  // for any non-corrupted packet received that has a non-negative RTT...
   if (!is_corrupted(packet))
   {
     int i = packet.acknum % WINDOW_SIZE;
@@ -154,15 +166,18 @@ void rdt_rcvA(struct pkt packet)
 
     if (rtt >= 0)
     {
+      // process acknowledgement
       timeACKed[i] = simulation->getSimulatorClock();
       base = packet.acknum + 1;
       simulation->stop_timer(A);
       if (base == nextseqnum)
       {
+        // if at end of window, don't do anything special
         TRACE << "RDT_RCV_A: " << base << " == " << nextseqnum << ENDL;
       }
       else
       {
+        // otherwise, update estimated RTT and start new timer if there isn't one running
         update_rtt_estimates(timeACKed[i]);
         TRACE << "RDT_RCV_A: " << base << " != " << nextseqnum << ENDL;
         simulation->start_timer(A, get_timeout_len());
@@ -170,6 +185,7 @@ void rdt_rcvA(struct pkt packet)
       return;
     }
   }
+  // count any packets that are corrupted or have negative RTT
   simulation->incRejections(B);
 }
 
@@ -196,19 +212,23 @@ void rdt_rcvB(struct pkt packet)
        << ") Layer 4 on side B has received a packet from layer 3 sent over the network from side A:" << packet
        << ",ex: " << expectedseqnum << ENDL;
 
+  // for any non-corrupted, in-order packet...
   if (!is_corrupted(packet) && packet.seqnum == expectedseqnum)
   {
     DEBUG << "RTD_RCV_B: Packet was in-tact and in-order, passing up & send new ACK" << ENDL;
+    // deliver to application layer
     struct msg message;
     memcpy(message.data, packet.payload, 20);
     simulation->deliver_data(B, message);
 
+    // send ACK back
     sndpktB = make_pkt(0, packet.seqnum, ACK);
     simulation->udt_send(B, sndpktB);
     expectedseqnum++;
   }
   else
   {
+    // reject packet, send old ACK
     DEBUG << "RTD_RCV_B: Packet was either corrupted or out of order, sending old ACK" << ENDL;
     simulation->udt_send(B, sndpktB);
     simulation->incRepetitions(B);
@@ -222,9 +242,12 @@ void A_timeout()
 {
   INFO << "A_TIMEOUT (" << simulation->getSimulatorClock() << ") Side A's timer has gone off." << ENDL;
   TRACE << "A_TIMEOUT: Sending packets from " << base << " to " << nextseqnum << ENDL;
+
+  // restart timer with a lofty estimate for timer
   simulation->stop_timer(A);
   simulation->start_timer(A, 2 * (estimatedRTT + 4 * devRTT));
 
+  // resend all outstanding packets
   for (uint i = base; i < nextseqnum; i++)
   {
     simulation->udt_send(A, sndpktA[i % WINDOW_SIZE]);
