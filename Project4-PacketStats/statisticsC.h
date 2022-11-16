@@ -2,6 +2,8 @@
 // Created by Phil Romig on 10/29/18.
 //
 
+#pragma once
+
 #ifndef PACKETSTATS_STATISTICSC_H
 #define PACKETSTATS_STATISTICSC_H
 

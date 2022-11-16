@@ -2,6 +2,8 @@
 // Created by Phil Romig on 10/31/18.
 //
 
+#pragma once
+
 #include "packetstats.h"
 
 #ifndef PACKETSTATS_NETWORKSTRUCTURES_H

@@ -2,6 +2,8 @@
 // Created by Phil Romig on 10/30/18.
 //
 
+#pragma once
+
 #ifndef PACKETSTATS_PACKETSTATS_H
 #define PACKETSTATS_PACKETSTATS_H
 
@@ -26,7 +28,7 @@
 void pk_processor(u_char *, const struct pcap_pkthdr *, const u_char *);
 
 // Boost free logging, NOT thread safe.
-inline int LOGGING_LEVEL;
+inline int LOGGING_LEVEL; //NOLINT
 #define FATAL   if (LOGGING_LEVEL > -1) std::cout << "FATAL: "
 #define ERROR   if (LOGGING_LEVEL > 0) std::cout  << "ERROR: "
 #define WARNING if (LOGGING_LEVEL > 1) std::cout  << "WARNING: "

@@ -3,6 +3,7 @@
 // Patch 0.1 13-Nov-19
 //
 
+#pragma once
 
 #ifndef PACKETSTATS_RESULTSC_H
 #define PACKETSTATS_RESULTSC_H
