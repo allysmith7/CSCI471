@@ -5,13 +5,14 @@
 #include "packetstats.h"
 
 resultsC::resultsC(bool dm, bool di, bool du, bool dt)
-    : ethernet("Ethernet"), otherLink("OtherLink"), ARP("ARP"), IPv4("IPv4"),
-      IPv6("IPv6"), otherNetwork("OtherNetwork"), TCP("TCP"), UDP("UDP"),
-      ICMP("ICMP"), otherTransport("OtherTransport"), synCount(0), finCount(0),
-      totalPacketCount(0), displayMacs(dm), displayIPv4(di), displayTCP(dt),
-      displayUDP(du) {}
+    : ethernet("Ethernet"), otherLink("OtherLink"), ARP("ARP"), IPv4("IPv4"), IPv6("IPv6"),
+      otherNetwork("OtherNetwork"), TCP("TCP"), UDP("UDP"), ICMP("ICMP"), otherTransport("OtherTransport"), synCount(0),
+      finCount(0), totalPacketCount(0), displayMacs(dm), displayIPv4(di), displayTCP(dt), displayUDP(du)
+{
+}
 
-std::ostream &operator<<(std::ostream &os, const resultsC &c) {
+std::ostream &operator<<(std::ostream &os, const resultsC &c)
+{
   os << "ethernet: " << std::endl
      << c.ethernet << std::endl
      << "otherLink: " << std::endl
@@ -45,7 +46,8 @@ std::ostream &operator<<(std::ostream &os, const resultsC &c) {
      << "\tfinCount = " << c.finCount << std::endl
      << "\ttotalPacketCount = " << c.totalPacketCount << std::endl;
 
-  if (c.displayMacs) {
+  if (c.displayMacs)
+  {
     os << "\nUnique Source Mac Addresses" << std::endl;
     for (auto I = c.srcMacSet.begin(); I != c.srcMacSet.end(); I++)
       os << "\t" << ether_ntoa((const struct ether_addr *)&(*I)) << std::endl;
@@ -55,23 +57,27 @@ std::ostream &operator<<(std::ostream &os, const resultsC &c) {
       os << "\t" << ether_ntoa((const struct ether_addr *)&(*I)) << std::endl;
   }
 
-  if (c.displayIPv4) {
+  if (c.displayIPv4)
+  {
     struct in_addr in;
 
     os << "\nUnique Source IPv4 Addresses" << std::endl;
-    for (auto I = c.srcIPv4Set.begin(); I != c.srcIPv4Set.end(); I++) {
+    for (auto I = c.srcIPv4Set.begin(); I != c.srcIPv4Set.end(); I++)
+    {
       in.s_addr = *I;
       os << "\t" << inet_ntoa(in) << std::endl;
     }
 
     os << "\nUnique Destination IPv4 Addresses" << std::endl;
-    for (auto I = c.dstIPv4Set.begin(); I != c.dstIPv4Set.end(); I++) {
+    for (auto I = c.dstIPv4Set.begin(); I != c.dstIPv4Set.end(); I++)
+    {
       in.s_addr = *I;
       os << "\t" << inet_ntoa(in) << std::endl;
     }
   }
 
-  if (c.displayUDP) {
+  if (c.displayUDP)
+  {
 
     os << "\nUnique UDP Source Ports" << std::endl;
     for (auto I = c.srcUDPSet.begin(); I != c.srcUDPSet.end(); I++)
@@ -82,7 +88,8 @@ std::ostream &operator<<(std::ostream &os, const resultsC &c) {
       os << "\t" << *I << std::endl;
   }
 
-  if (c.displayTCP) {
+  if (c.displayTCP)
+  {
 
     os << "\nUnique TCP Source Ports" << std::endl;
     for (auto I = c.srcTCPSet.begin(); I != c.srcTCPSet.end(); I++)

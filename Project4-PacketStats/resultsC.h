@@ -2,6 +2,7 @@
 // Created by Phil Romig on 10/29/18.
 // Patch 0.1 13-Nov-19
 //
+// clang-format off
 
 #pragma once
 

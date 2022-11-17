@@ -8,7 +8,6 @@
 
 #include "packetstats.h"
 
-
 // ****************************************************************************
 // * main()
 // *  You should not have to worry about anything if you don't want to.
@@ -16,7 +15,8 @@
 // *  call pk_processor() once for each packet and the finally call
 // *  the displayResutls() method.
 // ****************************************************************************
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 
   // **********************************************************************
   // * Initalize the debugging class.
@@ -38,9 +38,11 @@ int main(int argc, char **argv) {
   bool displayIP = false;
   bool displayUDP = false;
   bool displayTCP = false;
-  while ((opt = getopt(argc, argv, "mautf:d:")) != -1) {
+  while ((opt = getopt(argc, argv, "mautf:d:")) != -1)
+  {
 
-    switch (opt) {
+    switch (opt)
+    {
     case 'f':
       strncpy(filename, optarg, NAME_MAX);
       break;
@@ -62,9 +64,7 @@ int main(int argc, char **argv) {
     case ':':
     case '?':
     default:
-      std::cout << "useage: " << argv[0]
-                << " -f <cpautre file name> -d <debug level> -m -a -u -t"
-                << std::endl;
+      std::cout << "useage: " << argv[0] << " -f <cpautre file name> -d <debug level> -m -a -u -t" << std::endl;
       std::cout << "        -m list unique MAC addressses" << std::endl;
       std::cout << "        -a list unique IPv4 addressses" << std::endl;
       std::cout << "        -u list unique UDP ports" << std::endl;
@@ -77,8 +77,7 @@ int main(int argc, char **argv) {
   // **********************************************************************
   // * Instantiate the results class.
   // **********************************************************************
-  resultsC *results =
-      new resultsC(displayMac, displayIP, displayUDP, displayTCP);
+  resultsC *results = new resultsC(displayMac, displayIP, displayUDP, displayTCP);
   TRACE << "results object created" << ENDL;
 
   // **********************************************************************
@@ -88,15 +87,15 @@ int main(int argc, char **argv) {
   pcap_t *PT;
 
   bzero(errbuf, PCAP_ERRBUF_SIZE);
-  if ((PT = pcap_open_offline(filename, errbuf)) == NULL) {
+  if ((PT = pcap_open_offline(filename, errbuf)) == NULL)
+  {
     FATAL << "Unable to open pcap file: " << filename << ENDL;
     exit(EXIT_FAILURE);
   }
   DEBUG << filename << " has been opened." << ENDL;
 
   if (strlen(errbuf) > 0)
-    WARNING << "pcap_open_offiline encountered a non-fatal error: "
-            << pcap_geterr(PT) << ENDL;
+    WARNING << "pcap_open_offiline encountered a non-fatal error: " << pcap_geterr(PT) << ENDL;
 
   // **********************************************************************
   // * The dispatcher will call the packet processor once for packet
@@ -104,12 +103,12 @@ int main(int argc, char **argv) {
   // **********************************************************************
   int pk_count;
   DEBUG << "Calling dispatcher." << ENDL;
-  if ((pk_count = pcap_dispatch(PT, -1, pk_processor, (u_char *)results)) < 0) {
+  if ((pk_count = pcap_dispatch(PT, -1, pk_processor, (u_char *)results)) < 0)
+  {
     FATAL << "Error calling dispatcher: " << pcap_geterr(PT) << ENDL;
     exit(EXIT_FAILURE);
   }
-  DEBUG << "Dispatcher finished with " << pk_count
-        << " packets left in the queue." << ENDL;
+  DEBUG << "Dispatcher finished with " << pk_count << " packets left in the queue." << ENDL;
 
   // **********************************************************************
   // * File your report here.

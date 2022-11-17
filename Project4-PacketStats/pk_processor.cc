@@ -10,16 +10,15 @@
 // *  it will originate here). The function will be called once for every
 // *  packet in the savefile.
 // ****************************************************************************
-void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr,
-                  const u_char *packet) {
+void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+{
 
   resultsC *results = (resultsC *)user;
   results->incrementTotalPacketCount();
   DEBUG << "Processing packet #" << results->packetCount() << ENDL;
   char s[256];
   memset(s, 0, 256);
-  memcpy(s, ctime(&(pkthdr->ts.tv_sec)),
-         strlen(ctime(&(pkthdr->ts.tv_sec))) - 1);
+  memcpy(s, ctime(&(pkthdr->ts.tv_sec)), strlen(ctime(&(pkthdr->ts.tv_sec))) - 1);
   TRACE << "\tPacket timestamp is " << s << ENDL;
   TRACE << "\tPacket capture length is " << pkthdr->caplen << ENDL;
   TRACE << "\tPacket physical length is " << pkthdr->len << ENDL;

@@ -4,7 +4,8 @@
 
 #include "packetstats.h"
 
-statisticsC::statisticsC(std::string name) {
+statisticsC::statisticsC(std::string name)
+{
   name_v = name;
   min_v = INT_MAX;
   max_v = 0;
@@ -12,18 +13,23 @@ statisticsC::statisticsC(std::string name) {
   count_v = 0;
 }
 
-void statisticsC::insert(unsigned int newValue) {
+void statisticsC::insert(unsigned int newValue)
+{
   max_v = std::max(max_v, newValue);
   min_v = std::min(min_v, newValue);
   average_v = ((average_v * count_v) + newValue) / (count_v + 1);
   count_v++;
 }
 
-std::ostream &operator<<(std::ostream &os, const statisticsC &c) {
+std::ostream &operator<<(std::ostream &os, const statisticsC &c)
+{
   os << "\tTotal " << c.name_v << " = " << c.count_v << std::endl;
-  if (c.min_v < c.max_v) {
+  if (c.min_v < c.max_v)
+  {
     os << "\tMin " << c.name_v << " = " << c.min_v << std::endl;
-  } else {
+  }
+  else
+  {
     os << "\tMin " << c.name_v << " = " << c.max_v << std::endl;
   }
   os << "\tMax " << c.name_v << " = " << c.max_v << std::endl;

@@ -1,6 +1,7 @@
 //
 // Created by Phil Romig on 10/30/18.
 //
+// clang-format off
 
 #pragma once
 
