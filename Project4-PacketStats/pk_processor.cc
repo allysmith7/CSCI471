@@ -3,6 +3,8 @@
 //
 
 #include "packetstats.h"
+#include <net/ethernet.h>
+#include <netinet/in.h>
 
 // ****************************************************************************
 // * pk_processor()
@@ -40,6 +42,12 @@ void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *
   // Record it as Ethernet II
   // length is the physical length of the packet (pkthdr->len)
   // - Record its existance using results->newEthernet(length)
+  struct ether_header *macHeader = (struct ether_header *)packet;
+
+  if (ntohs(macHeader->ether_type) != ETHERTYPE_IP) {
+    // not IPv4, skip
+    return;
+  }
 
   // ***********************************************************************
   // * Is it ARP?
