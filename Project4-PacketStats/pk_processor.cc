@@ -3,6 +3,8 @@
 //
 
 #include "packetstats.h"
+#include <cstdint>
+#include <endian.h>
 
 const int TCP = 6;
 const int UDP = 17;
@@ -16,7 +18,7 @@ std::string hexdump(const u_char *src, uint n)
     if (i % 16 == 0)
       result += "\n";
     char str[n];
-    sprintf(str, "\t%d:%02x ", i, *(src + i));
+    sprintf(str, "%02x ", *(src + i));
     result += str;
   }
   return result;
@@ -26,8 +28,8 @@ uint64_t ether_ntouint(uint8_t *input)
   uint64_t result = 0;
   for (int i = 0; i < 6; i++)
   {
-    result *= 16;
-    result += input[i];
+    result *= 256;
+    result += input[5 - i];
   }
   return result;
 }
@@ -49,7 +51,7 @@ void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *
   TRACE << "\tPacket timestamp is " << s << ENDL;
   TRACE << "\tPacket capture length is " << pkthdr->caplen << ENDL;
   TRACE << "\tPacket physical length is " << pkthdr->len << ENDL;
-  TRACE << "\tContent: " << hexdump(packet, pkthdr->caplen) << ENDL;
+  // TRACE << "\tContent: " << hexdump(packet, pkthdr->caplen) << ENDL;
 
   // ***********************************************************************
   // * Process the link layer header
@@ -63,6 +65,9 @@ void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *
 
   results->newSrcMac(ether_ntouint(macHeader->ether_shost));
   results->newDstMac(ether_ntouint(macHeader->ether_dhost));
+
+  TRACE << "\tSource Mac: " << hexdump((const u_char *)&macHeader->ether_shost, 6) << ENDL;
+  TRACE << "\tDest Mac: " << hexdump((const u_char *)&macHeader->ether_dhost, 6) << ENDL;
 
   // Record it as Ethernet II
   // length is the physical length of the packet (pkthdr->len)
@@ -105,14 +110,14 @@ void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *
   struct ip *ipHeader = (struct ip *)(packet + ETHER_HDR_LEN);
 
   // multiplied by 4 since it is 32bits wide, 8 bits per byte
-  auto ipHeaderLen = ipHeader->ip_hl * 4;
-  results->newIPv4(htobe16(ipHeader->ip_len));
+  int ipHeaderLen = ipHeader->ip_hl * 4;
+  results->newIPv4(pkthdr->len - ETHER_HDR_LEN);
 
-  TRACE << "IP Content: " << hexdump((const u_char *)ipHeader, ipHeaderLen) << ENDL;
-  DEBUG << "IP Length: " << htobe16(ipHeader->ip_len) << ENDL;
+  // TRACE << "IP Content: " << hexdump((const u_char *)ipHeader, ipHeaderLen) << ENDL;
+  DEBUG << "IP Header Length: " << ipHeaderLen << ENDL;
 
-  results->newSrcIPv4(be32toh(ipHeader->ip_src.s_addr));
-  results->newDstIPv4(be32toh(ipHeader->ip_dst.s_addr));
+  results->newSrcIPv4(ipHeader->ip_src.s_addr);
+  results->newDstIPv4(ipHeader->ip_dst.s_addr);
 
   // ***********************************************************************
   // * Process the Transport Layer
