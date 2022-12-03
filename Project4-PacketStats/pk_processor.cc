@@ -56,63 +56,72 @@ void pk_processor(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *
   // ***********************************************************************
   // * Process the link layer header
   // ***********************************************************************
-  //
-  // Overlay "struct ether_header" onto the packet
-  //
-  // Extract the src/dst address, add them to results.
-  // (use results->newSrcMac() and results->newDstMac())
   struct ether_header *macHeader = (struct ether_header *)packet;
+  uint64_t macSrc = ether_ntouint(macHeader->ether_shost);
+  uint64_t macDest = ether_ntouint(macHeader->ether_dhost);
+  results->newSrcMac(macSrc);
+  results->newDstMac(macDest);
+  TRACE << "\tSource MAC = " << ether_ntoa((const struct ether_addr *)&(macHeader->ether_shost)) << ENDL;
+  TRACE << "\tDestination MAC = " << ether_ntoa((const struct ether_addr *)&(macHeader->ether_dhost)) << ENDL;
+  TRACE << "\tEther Type = " << ntohs(macHeader->ether_type) << ENDL;
 
-  results->newSrcMac(ether_ntouint(macHeader->ether_shost));
-  results->newDstMac(ether_ntouint(macHeader->ether_dhost));
-
-  TRACE << "\tSource Mac: " << hexdump((const u_char *)&macHeader->ether_shost, 6) << ENDL;
-  TRACE << "\tDest Mac: " << hexdump((const u_char *)&macHeader->ether_dhost, 6) << ENDL;
-
-  // Record it as Ethernet II
-  // length is the physical length of the packet (pkthdr->len)
-  // - Record its existance using results->newEthernet(length)
-  if (ntohs(macHeader->ether_type) == ETHERTYPE_ARP)
+  // ***********************************************************************
+  // ** If the value in ether_type is less than 1500 then the frame is
+  // ** something other than Ethernet. We count tat as "other link" and
+  // ** and we are done.
+  // ***********************************************************************
+  if (ntohs(macHeader->ether_type) <= 1500)
   {
-    // Is it an ARP packet? If so, record it in results and you are done.
-    // length is the physical length of the packet (pkthdr->len)
-    // - Record its existance using results->newARP(length)
-    results->newEthernet(pkthdr->len);
-    results->newARP(pkthdr->len);
-    return;
-  }
-  else if (ntohs(macHeader->ether_type) == ETHERTYPE_IPV6)
-  {
-    // Is it an IPv6 Packet?
-    // length = Total packet length - Ethernet II header length
-    // - Record its existance using results->newIPv6(length).
-    results->newEthernet(pkthdr->len);
-    results->newIPv6(pkthdr->len - ETHER_HDR_LEN);
-    return;
-  }
-  else if (ntohs(macHeader->ether_type) != ETHERTYPE_IP)
-  {
-    // Is it anything other than IPv4, record it as other and you are done.
-    // length = Total packet length - Ethernet II header length
-    // - Record its existance using results->newOtherNetwork())
+    TRACE << "\tPacket is not Ethernet II" << ENDL;
     results->newOtherLink(pkthdr->len);
     return;
   }
-    results->newEthernet(pkthdr->len);
+
   // ***********************************************************************
-  // * Process IPv4 packets
+  // * Now we know the frame is Ethernet II
   // ***********************************************************************
-  //
-  // If we are here, it must be IPv4, so overlay "struct ip" on the right
-  // location. length = Total packet length - Ethernet II header length
-  // - Record its existance using results->newIPv4(length)
-  // - Record the src/dst addressed in the results class.
-  struct ip *ipHeader = (struct ip *)(packet + ETHER_HDR_LEN);
+  TRACE << "\tPacket is Ethernet II" << ENDL;
+  results->newEthernet(pkthdr->len);
+
+  if (ntohs(macHeader->ether_type) == ETHERTYPE_ARP)
+  {
+    TRACE << "\tPacket is ARP" << ENDL;
+    results->newARP(pkthdr->len);
+    return;
+  }
+
+  // ***********************************************************************
+  // *****************   Process he Network Layer   ************************
+  // ***********************************************************************
+
+  // ***********************************************************************
+  // * First, identify the IPv6 and Other Network using the type field
+  // * of the Ethernet frame.
+  // ***********************************************************************
+  int networkPacketLength = pkthdr->len - 14;
+  if (ntohs(macHeader->ether_type) == ETHERTYPE_IPV6)
+  {
+    TRACE << "\t\tPacket is IPv6, length is " << networkPacketLength << ENDL;
+    results->newIPv6(networkPacketLength);
+    return;
+  }
+
+  if (ntohs(macHeader->ether_type) != ETHERTYPE_IP)
+  {
+    TRACE << "\t\tPacket has an unrecognized ETHERTYPE" << ntohs(macHeader->ether_type) << ENDL;
+    results->newOtherNetwork(networkPacketLength);
+    return;
+  }
+
+  // ***********************************************************************
+  // * Now we know it MUST be an IPv4 Packet
+  // ***********************************************************************
+  TRACE << "\t\tPacket is IPv4, length is " << networkPacketLength << ENDL;
+  results->newIPv4(networkPacketLength);
+  struct ip *ipHeader = (struct ip *)(packet + 14);
 
   // multiplied by 4 since it is 32bits wide, 8 bits per byte
   int ipHeaderLen = ipHeader->ip_hl * 4;
-  results->newIPv4(pkthdr->len - ETHER_HDR_LEN);
-
   // TRACE << "IP Content: " << hexdump((const u_char *)ipHeader, ipHeaderLen) << ENDL;
   DEBUG << "IP Header Length: " << ipHeaderLen << ENDL;
 
